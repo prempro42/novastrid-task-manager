@@ -10,62 +10,34 @@ import {
   Input,
   Box,
 } from "@chakra-ui/react";
-interface Task {
-  id: number;
-  text: string;
-  completed: boolean;
-}
-
-interface Filter {
-  all: boolean;
-  completed: boolean;
-  pending: boolean;
-}
+import { useSelector, useDispatch } from "react-redux";
+import { RootState } from "./store";
+import {
+  addTask,
+  toggleTaskCompletion,
+  deleteTask,
+  setFilter,
+} from "./features/tasksSlice";
 
 const TaskManager = () => {
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [newTask, setNewTask] = useState("");
-  const [taskId, setTaskId] = useState(1);
-  const [filter, setFilter] = useState<Filter>({
-    all: true,
-    completed: false,
-    pending: false,
-  });
+  const tasks = useSelector((state: RootState) => state.tasks.tasks);
+  const filter = useSelector((state: RootState) => state.tasks.filter);
+  const dispatch = useDispatch();
 
   const handleAddTask = () => {
     if (newTask.trim() !== "") {
-      setTasks([...tasks, { id: taskId, text: newTask, completed: false }]);
+      dispatch(addTask(newTask));
       setNewTask("");
-      setTaskId(taskId + 1);
     }
   };
 
-  const handleCompleteTask = (id: number) => {
-    setTasks(
-      tasks.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
-      )
-    );
-  };
-
-  const handleDeleteTask = (id: number) => {
-    setTasks(tasks.filter((task) => task.id !== id));
-  };
-
-  const handleFilter = (type: "all" | "completed" | "pending") => {
-    setFilter({
-      all: type === "all",
-      completed: type === "completed",
-      pending: type === "pending",
-    });
-  };
-
-  const filteredTasks = () => {
-    if (filter.all) return tasks;
-    if (filter.completed) return tasks.filter((task) => task.completed);
-    if (filter.pending) return tasks.filter((task) => !task.completed);
-    return tasks;
-  };
+  const filteredTasks = tasks.filter((task) => {
+    if (filter === "all") return true;
+    if (filter === "completed") return task.completed;
+    if (filter === "pending") return !task.completed;
+    return false;
+  });
 
   return (
     <Box maxW="md" mx="auto" p={4} bg="white" borderRadius="md" boxShadow="md">
@@ -102,10 +74,10 @@ const TaskManager = () => {
 
       <Flex justify="space-between" mb={4}>
         <Button
-          onClick={() => handleFilter("all")}
+          onClick={() => dispatch(setFilter("all"))}
           mr={2}
-          bg={filter.all ? "blue.500" : "gray.300"}
-          _hover={{ bg: filter.all ? "blue.700" : "gray.400" }}
+          bg={filter === "all" ? "blue.500" : "gray.300"}
+          _hover={{ bg: filter === "all" ? "blue.700" : "gray.400" }}
           color="white"
           fontWeight="bold"
           py={2}
@@ -115,10 +87,10 @@ const TaskManager = () => {
           All
         </Button>
         <Button
-          onClick={() => handleFilter("completed")}
+          onClick={() => dispatch(setFilter("completed"))}
           mr={2}
-          bg={filter.completed ? "blue.500" : "gray.300"}
-          _hover={{ bg: filter.completed ? "blue.700" : "gray.400" }}
+          bg={filter === "completed" ? "blue.500" : "gray.300"}
+          _hover={{ bg: filter === "completed" ? "blue.700" : "gray.400" }}
           color="white"
           fontWeight="bold"
           py={2}
@@ -128,9 +100,9 @@ const TaskManager = () => {
           Completed
         </Button>
         <Button
-          onClick={() => handleFilter("pending")}
-          bg={filter.pending ? "blue.500" : "gray.300"}
-          _hover={{ bg: filter.pending ? "blue.700" : "gray.400" }}
+          onClick={() => dispatch(setFilter("pending"))}
+          bg={filter === "pending" ? "blue.500" : "gray.300"}
+          _hover={{ bg: filter === "pending" ? "blue.700" : "gray.400" }}
           color="white"
           fontWeight="bold"
           py={2}
@@ -140,12 +112,13 @@ const TaskManager = () => {
           Pending
         </Button>
       </Flex>
+
       <List spacing={2}>
-        {filteredTasks().map((task) => (
+        {filteredTasks.map((task) => (
           <ListItem key={task.id} display="flex" alignItems="center" mb={2}>
             <Checkbox
               isChecked={task.completed}
-              onChange={() => handleCompleteTask(task.id)}
+              onChange={() => dispatch(toggleTaskCompletion(task.id))}
               mr={2}
               size="md"
             />
@@ -157,7 +130,7 @@ const TaskManager = () => {
               {task.text}
             </Text>
             <Button
-              onClick={() => handleDeleteTask(task.id)}
+              onClick={() => dispatch(deleteTask(task.id))}
               ml="auto"
               bg="red.500"
               _hover={{ bg: "red.700" }}
