@@ -1,75 +1,41 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
+import {
+  fetchTasksFromAPI,
+  addTaskToAPI,
+  deleteTaskFromAPI,
+} from "../utils/api";
+import { TasksState } from "types";
 
-// Task interface
-interface Task {
-  id: number;
-  title: string;
-  completed: boolean;
-}
-
-interface TasksState {
-  tasks: Task[];
-  filter: "all" | "completed" | "pending";
-  loading: boolean;
-  error: string | null;
-}
-
-// Initial state
 const initialState: TasksState = {
   tasks: [],
-  filter: "all", // Added filter state
+  filter: "all",
   loading: false,
   error: null,
 };
 
-// Fetch tasks from mock API (JSONPlaceholder)
+// Thunks
 export const fetchTasks = createAsyncThunk("tasks/fetchTasks", async () => {
-  const response = await axios.get(
-    "https://jsonplaceholder.typicode.com/todos?_limit=5"
-  );
-  return response.data.map((task: Task) => ({
-    id: task.id,
-    title: task.title,
-    completed: task.completed,
-  }));
+  const tasks = await fetchTasksFromAPI();
+  return tasks;
 });
 
-// Add a task to mock API
 export const addTask = createAsyncThunk(
   "tasks/addTask",
-  async (taskText: string, { getState }) => {
+  async (taskTitle: string, { getState }) => {
     const state = getState() as { tasks: TasksState };
-    const newId = state.tasks.tasks.length
-      ? Math.max(...state.tasks.tasks.map((task) => task.id)) + 1
-      : 1;
-
-    // Simulate adding task to mock API
-    const response = await axios.post(
-      "https://jsonplaceholder.typicode.com/todos",
-      {
-        title: taskText,
-        completed: false,
-      }
-    );
-    return {
-      id: newId, // Use client-generated ID
-      title: response.data.title,
-      completed: response.data.completed,
-    };
+    const task = await addTaskToAPI(taskTitle, state);
+    return task;
   }
 );
 
-// Delete a task from mock API
 export const deleteTask = createAsyncThunk(
   "tasks/deleteTask",
   async (taskId: number) => {
-    await axios.delete(`https://jsonplaceholder.typicode.com/todos/${taskId}`);
+    await deleteTaskFromAPI(taskId);
     return taskId;
   }
 );
 
-// Create the slice
 const tasksSlice = createSlice({
   name: "tasks",
   initialState,
@@ -86,13 +52,12 @@ const tasksSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(fetchTasks.fulfilled, (state, action) => {
+        state.tasks = action.payload;
+        state.loading = false;
+      })
       .addCase(fetchTasks.pending, (state) => {
         state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchTasks.fulfilled, (state, action) => {
-        state.loading = false;
-        state.tasks = action.payload;
       })
       .addCase(fetchTasks.rejected, (state, action) => {
         state.loading = false;
@@ -100,12 +65,29 @@ const tasksSlice = createSlice({
       })
       .addCase(addTask.fulfilled, (state, action) => {
         state.tasks.push(action.payload);
+        state.loading = false;
+      })
+      .addCase(addTask.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(addTask.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || "Failed to add task";
       })
       .addCase(deleteTask.fulfilled, (state, action) => {
         state.tasks = state.tasks.filter((task) => task.id !== action.payload);
+        state.loading = false;
+      })
+      .addCase(deleteTask.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(deleteTask.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || "Failed to delete task";
       });
   },
 });
 
-export const { toggleTaskCompletion, setFilter } = tasksSlice.actions;
+export const { setFilter, toggleTaskCompletion } = tasksSlice.actions;
+
 export default tasksSlice.reducer;
